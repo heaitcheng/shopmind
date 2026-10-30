@@ -1,0 +1,393 @@
+{
+  "rows": [
+    {
+      "text": "我要退货，订单号 SO20261029001，尺码太小了穿不上",
+      "expect": {
+        "order_id": "SO20261029001",
+        "intent": "return",
+        "must_miss": []
+      },
+      "got": {
+        "order_id": "SO20261029001",
+        "intent": "return",
+        "reason": "尺码太小了穿不上",
+        "expected_solution": null,
+        "missing_fields": [],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "昨天那单衣服有色差，订单 SO20261030002，想换一件浅色的",
+      "expect": {
+        "order_id": "SO20261030002",
+        "intent": "exchange",
+        "must_miss": []
+      },
+      "got": {
+        "order_id": "SO20261030002",
+        "intent": "exchange",
+        "reason": "衣服有色差",
+        "expected_solution": "换一件浅色的",
+        "missing_fields": [],
+        "confidence": 1.0
+      }
+    },
+    {
+      "text": "我要退货",
+      "expect": {
+        "order_id": null,
+        "intent": "return",
+        "must_miss": [
+          "订单号"
+        ]
+      },
+      "got": {
+        "order_id": null,
+        "intent": "return",
+        "reason": null,
+        "expected_solution": null,
+        "missing_fields": [
+          "订单号",
+          "原因"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "买的耳机坏了，左耳没声音，能修吗",
+      "expect": {
+        "order_id": null,
+        "intent": "repair",
+        "must_miss": [
+          "订单号"
+        ]
+      },
+      "got": {
+        "order_id": null,
+        "intent": "repair",
+        "reason": "左耳没声音",
+        "expected_solution": null,
+        "missing_fields": [
+          "订单号",
+          "凭证"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "我只想退钱，东西我不要了，订单号 SO20261101003",
+      "expect": {
+        "order_id": "SO20261101003",
+        "intent": "refund_only",
+        "must_miss": []
+      },
+      "got": {
+        "order_id": "SO20261101003",
+        "intent": "refund_only",
+        "reason": "东西我不要了",
+        "expected_solution": "退钱",
+        "missing_fields": [],
+        "confidence": 1.0
+      }
+    },
+    {
+      "text": "退款什么时候到账？我上周退的",
+      "expect": {
+        "order_id": null,
+        "intent": "other",
+        "must_miss": [
+          "订单号"
+        ]
+      },
+      "got": {
+        "order_id": null,
+        "intent": "refund_only",
+        "reason": null,
+        "expected_solution": null,
+        "missing_fields": [
+          "订单号",
+          "原因"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "这件外套起球了，我要退货，订单号 SO20261015008，有照片可以作证",
+      "expect": {
+        "order_id": "SO20261015008",
+        "intent": "return",
+        "must_miss": []
+      },
+      "got": {
+        "order_id": "SO20261015008",
+        "intent": "return",
+        "reason": "起球",
+        "expected_solution": "退货",
+        "missing_fields": [],
+        "confidence": 1.0
+      }
+    },
+    {
+      "text": "换货怎么操作啊",
+      "expect": {
+        "order_id": null,
+        "intent": "exchange",
+        "must_miss": [
+          "订单号"
+        ]
+      },
+      "got": {
+        "order_id": null,
+        "intent": "exchange",
+        "reason": null,
+        "expected_solution": null,
+        "missing_fields": [
+          "订单号",
+          "原因",
+          "凭证"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "你们家客服态度太差了吧，我买的东西一直不发货",
+      "expect": {
+        "order_id": null,
+        "intent": "other",
+        "must_miss": [
+          "订单号"
+        ]
+      },
+      "got": {
+        "order_id": null,
+        "intent": "other",
+        "reason": null,
+        "expected_solution": null,
+        "missing_fields": [
+          "订单号"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "订单号是我随便编的 SO12345，我要退货",
+      "expect": {
+        "order_id": null,
+        "intent": "return",
+        "must_miss": [
+          "订单号"
+        ]
+      },
+      "got": {
+        "order_id": null,
+        "intent": "return",
+        "reason": null,
+        "expected_solution": null,
+        "missing_fields": [
+          "订单号"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "鞋子开胶了，订单 SO20260928011，我想换一双新的",
+      "expect": {
+        "order_id": "SO20260928011",
+        "intent": "exchange",
+        "must_miss": []
+      },
+      "got": {
+        "order_id": "SO20260928011",
+        "intent": "exchange",
+        "reason": "鞋子开胶了",
+        "expected_solution": "换一双新的",
+        "missing_fields": [
+          "凭证"
+        ],
+        "confidence": 0.9
+      }
+    },
+    {
+      "text": "手机壳裂了能修吗，订单号 SO20261002014",
+      "expect": {
+        "order_id": "SO20261002014",
+        "intent": "repair",
+        "must_miss": []
+      },
+      "got": {
+        "order_id": "SO20261002014",
+        "intent": "repair",
+        "reason": null,
+        "expected_solution": null,
+        "missing_fields": [
+          "凭证"
+        ],
+        "confidence": 0.8
+      }
+    },
+    {
+      "text": "收到的东西和图片完全不一样，我要退",
+      "expect": {
+        "order_id": null,
+        "intent": "return",
+        "must_miss": [
+          "订单号"
+        ]
+      },
+      "got": {
+        "order_id": null,
+        "intent": "return",
+        "reason": null,
+        "expected_solution": null,
+        "missing_fields": [
+          "订单号",
+          "原因",
+          "凭证"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "帮我查一下物流到哪了",
+      "expect": {
+        "order_id": null,
+        "intent": "other",
+        "must_miss": [
+          "订单号"
+        ]
+      },
+      "got": {
+        "order_id": null,
+        "intent": "other",
+        "reason": null,
+        "expected_solution": null,
+        "missing_fields": [
+          "订单号"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "两条都买大了，订单 SO20261020017 和 SO20261020018，都要换小一码",
+      "expect": {
+        "order_id": "SO20261020017",
+        "intent": "exchange",
+        "must_miss": []
+      },
+      "got": {
+        "order_id": "SO20261020017",
+        "intent": "exchange",
+        "reason": "买大了",
+        "expected_solution": "换小一码",
+        "missing_fields": [
+          "凭证"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "这条裤子质量太差了，穿一次就破，必须退，订单号 SO20261031020",
+      "expect": {
+        "order_id": "SO20261031020",
+        "intent": "return",
+        "must_miss": []
+      },
+      "got": {
+        "order_id": "SO20261031020",
+        "intent": "return",
+        "reason": "质量太差，穿一次就破",
+        "expected_solution": "必须退",
+        "missing_fields": [
+          "凭证"
+        ],
+        "confidence": 0.9
+      }
+    },
+    {
+      "text": "我今天收到货了，但是少了一件，订单号 SO20261030021",
+      "expect": {
+        "order_id": "SO20261030021",
+        "intent": "other",
+        "must_miss": []
+      },
+      "got": {
+        "order_id": "SO20261030021",
+        "intent": "return",
+        "reason": "少了一件",
+        "expected_solution": null,
+        "missing_fields": [
+          "凭证"
+        ],
+        "confidence": 1.0
+      }
+    },
+    {
+      "text": "能不能便宜点",
+      "expect": {
+        "order_id": null,
+        "intent": "other",
+        "must_miss": [
+          "订单号"
+        ]
+      },
+      "got": {
+        "order_id": null,
+        "intent": "other",
+        "reason": null,
+        "expected_solution": null,
+        "missing_fields": [
+          "订单号",
+          "原因"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "想退货但我找不到订单号了",
+      "expect": {
+        "order_id": null,
+        "intent": "return",
+        "must_miss": [
+          "订单号"
+        ]
+      },
+      "got": {
+        "order_id": null,
+        "intent": "return",
+        "reason": null,
+        "expected_solution": null,
+        "missing_fields": [
+          "订单号",
+          "原因"
+        ],
+        "confidence": 0.0
+      }
+    },
+    {
+      "text": "护肤品用了过敏，脸红了一片，要退款，订单号 SO20261025025，我有医院单子",
+      "expect": {
+        "order_id": "SO20261025025",
+        "intent": "refund_only",
+        "must_miss": []
+      },
+      "got": {
+        "order_id": "SO20261025025",
+        "intent": "refund_only",
+        "reason": "护肤品过敏，脸红了一片",
+        "expected_solution": "退款",
+        "missing_fields": [
+          "凭证"
+        ],
+        "confidence": 0.9
+      }
+    }
+  ],
+  "summary": {
+    "total": 20,
+    "ok": 20,
+    "order_right": 20,
+    "intent_right": 18,
+    "miss_right": 10,
+    "miss_total": 10
+  }
+}

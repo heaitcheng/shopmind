@@ -53,3 +53,29 @@ async def test_抽取方法可配置(fake_model):
     await svc.extract("随便说点什么")
 
     assert fake_model.structured_calls[-1][1] == "json_schema"
+
+
+async def test_把字符串null归一成None(fake_model):
+    """模型常把空值写成字符串 "null"，不归一化会污染下游判空逻辑。"""
+    fake_model.structured_result = AfterSaleRequest(
+        order_id="null", intent=AfterSaleIntent.RETURN, reason="None", expected_solution=""
+    )
+    svc = _service(fake_model)
+
+    result = await svc.extract("我要退货")
+
+    assert result.order_id is None
+    assert result.reason is None
+    assert result.expected_solution is None
+
+
+async def test_正常值不被归一化误伤(fake_model):
+    fake_model.structured_result = AfterSaleRequest(
+        order_id="SO20261029001", intent=AfterSaleIntent.RETURN, reason="尺码不合适"
+    )
+    svc = _service(fake_model)
+
+    result = await svc.extract("我要退货")
+
+    assert result.order_id == "SO20261029001"
+    assert result.reason == "尺码不合适"

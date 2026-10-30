@@ -1,5 +1,3 @@
-from functools import lru_cache
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +14,8 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_temperature: float = 0.7
     llm_timeout: float = 60.0
+    # 上游 429/5xx 时的自动重试次数，由 openai SDK 做指数退避
+    llm_max_retries: int = 2
     # 智谱专用。留空则不发送 thinking 参数；必须为 disabled，原因见 docs/ch01-spec.md 4.7
     llm_thinking: str = ""
 
@@ -28,6 +28,6 @@ class Settings(BaseSettings):
     shop_name: str = "小店"
 
 
-@lru_cache
 def get_settings() -> Settings:
+    """故意不缓存：改完 .env 下一次请求就生效，不用重启服务。"""
     return Settings()

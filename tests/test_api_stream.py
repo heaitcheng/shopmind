@@ -71,3 +71,23 @@ def test_上游报错时发error事件而不是断连(client, fake_model):
 
 def test_缺少message字段返回422(client):
     assert client.post("/api/chat/stream", json={}).status_code == 422
+
+
+def test_清空会话只需session_id不要求message(client, fake_model):
+    """页面上的清空按钮只发 session_id，早期版本误用了 ChatRequest 会 422。"""
+    client.post("/api/chat/stream", json={"session_id": "s1", "message": "我要退货"})
+
+    r = client.post("/api/chat/reset", json={"session_id": "s1"})
+
+    assert r.status_code == 200
+    assert r.json() == {"cleared": "s1"}
+
+
+def test_清空后上下文不再延续(client, fake_model):
+    client.post("/api/chat/stream", json={"session_id": "s1", "message": "我的订单是 SO20261029001"})
+    client.post("/api/chat/reset", json={"session_id": "s1"})
+
+    client.post("/api/chat/stream", json={"session_id": "s1", "message": "接着说"})
+
+    joined = " ".join(str(m.content) for m in fake_model.calls[-1])
+    assert "SO20261029001" not in joined

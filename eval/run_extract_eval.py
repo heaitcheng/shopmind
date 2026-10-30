@@ -38,6 +38,24 @@ def missing_hit(got_fields: list[str], needle: str) -> bool:
     return needle in joined
 
 
+RETRY_WAITS = (8, 20, 40)
+
+
+async def extract_with_retry(service, text: str):
+    """免费档限流很凶，SDK 的退避窗口太短，批处理这里自己等。"""
+    last = None
+    for wait in (0, *RETRY_WAITS):
+        if wait:
+            await asyncio.sleep(wait)
+        try:
+            return await service.extract(text)
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            if "429" not in str(exc):
+                raise
+    raise last  # type: ignore[misc]
+
+
 async def main(limit: int | None, delay: float) -> int:
     settings = get_settings()
     service = ChatService(model=get_llm(), store=SessionStore(), settings=settings)
@@ -49,7 +67,7 @@ async def main(limit: int | None, delay: float) -> int:
         text = case["text"]
         expect = case["expect"]
         try:
-            got = await service.extract(text)
+            got = await extract_with_retry(service, text)
             got_dict = got.model_dump()
             got_dict["intent"] = got.intent.value
         except Exception as exc:  # 单条失败不中断整轮

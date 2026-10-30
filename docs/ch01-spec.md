@@ -16,6 +16,7 @@
 | curl 看到逐 token 流式回复 | `POST /api/chat/stream` |
 | 连续两轮，第二轮接住第一轮上下文 | 同上，复用 `session_id` |
 | 售后描述 → 结构化 JSON | `POST /api/chat/extract` |
+| （附加）清空会话 | `POST /api/chat/reset` |
 | （附加）聊天页面 | `GET /` |
 | （附加）健康检查 | `GET /health` |
 
@@ -52,8 +53,9 @@ ChatOpenAI(model=..., base_url=..., api_key=..., extra_body=...)
 
 **默认落地：智谱 BigModel**
 - 端点 `https://open.bigmodel.cn/api/paas/v4`（实测直连可达，无需代理）
-- 模型 `glm-4.7-flash`（免费档，30B，200K 上下文，支持 Function Calling / 结构化输出 / 流式）
-- 想提效果就改 `LLM_MODEL` 为 `glm-4.6` / `glm-5.3`，端点不变
+- 模型 `glm-4.5-airx`（轻量付费档，128K 上下文，¥0.8/¥2 每百万 tokens，支持 Function Calling / 结构化输出 / 流式）
+- 免费档 `glm-4.7-flash` 实测限流极严（20 条连续请求约 1/4 触发 429），只适合试玩
+- 想提效果就改 `LLM_MODEL` 为 `glm-4.7`，端点不变
 
 **已核实的限制**：Anthropic 官方 API 不是 OpenAI 协议。要接原生 Claude，需经 one-api / LiteLLM 网关转一层，或改用 `langchain-anthropic`。
 按用户决定，ch01 不处理 Claude，仅记录为已知限制。
@@ -158,4 +160,28 @@ TDD 不适用于纯 Prompt / 数据类，按要求替换为：
 1. tiktoken 首次运行需联网下载 BPE（约 71s），断网环境会失败 → 计入 README 前置说明。
 2. `function_calling` 方式下对复杂 schema 偶有字段缺失，`missing_fields` 会暴露这一点。
 3. 进程内会话在多 worker 下不共享，ch01 只跑单 worker。
-4. `glm-4.7-flash` 是免费档，有速率限制与配额，高峰可能 429；换 `glm-4.6` 可缓解。
+4. 智谱免费档限流极严，已改付费轻量档。
+
+## 7. 实测结果（2026-10-30，glm-4.5-airx）
+
+抽取评估 20 条标注样例，`eval/run_extract_eval.py`：
+
+| 指标 | 结果 |
+|---|---|
+| 调用成功率 | 20/20 |
+| 订单号准确率 | 20/20 = 100% |
+| 意图准确率 | 18/20 = 90% |
+| 缺失项召回率 | 10/10 = 100% |
+
+两条意图错判经人工复核属**标注歧义**，非模型错误：
+「退款什么时候到账」判 `refund_only`、「少了一件」判 `return`，两种理解均成立。后续应细化标注口径。
+
+调优过程（同为 20 条样本，免费档 `glm-4.7-flash`）：
+
+| 轮次 | 改动 | 订单号 | 意图 | 缺失项召回 |
+|---|---|---|---|---|
+| 1 | 初版 prompt | 94.4% | 88.9% | 44.4% |
+| 2 | 把约束写进 schema 字段 description + 长 prompt | 86.7% | 93.3% | 75.0% |
+| 3 | 换 glm-4.5-airx + 归一化 `"null"` 字符串 | 100% | 90.0% | 100% |
+
+关键教训：走 `function_calling` 时，模型更依赖 schema 里每个字段的 description，长指令 prompt 的作用有限。约束必须写进字段描述。

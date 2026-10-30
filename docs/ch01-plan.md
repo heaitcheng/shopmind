@@ -5,7 +5,7 @@
 
 ## 前置（人工）
 
-1. 复制 `.env.example` 为 `.env`，填 `LLM_API_KEY`（默认上游智谱 BigModel，模型 `glm-4.7-flash` 免费）。
+1. 复制 `.env.example` 为 `.env`，填 `LLM_API_KEY`（默认上游智谱 BigModel，模型 `glm-4.5-airx` 轻量付费档）。
 2. `tiktoken` 首次运行需联网下载编码表，约 71 秒。
 
 ## 任务 0：开隔离分支

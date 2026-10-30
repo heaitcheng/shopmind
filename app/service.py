@@ -9,6 +9,19 @@ from app.prompts import render_extract_instruction, render_system
 from app.schemas import AfterSaleRequest
 
 
+_NULLISH = {"", "null", "none", "nil", "n/a", "na", "undefined", "-"}
+
+
+def _clean_text(value: str | None) -> str | None:
+    """模型经常把空值写成字符串 "null"，这里统一归一成 None。"""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    return None if stripped.lower() in _NULLISH else stripped
+
+
 class ChatService:
     """把「取历史 → 裁剪 → 拼消息 → 调模型 → 产出事件」串起来。
 
@@ -63,6 +76,13 @@ class ChatService:
         structured = self.model.with_structured_output(
             AfterSaleRequest, method=self.settings.structured_method
         )
-        return await structured.ainvoke(
+        raw = await structured.ainvoke(
             [SystemMessage(render_extract_instruction()), HumanMessage(text)]
+        )
+        return raw.model_copy(
+            update={
+                "order_id": _clean_text(raw.order_id),
+                "reason": _clean_text(raw.reason),
+                "expected_solution": _clean_text(raw.expected_solution),
+            }
         )

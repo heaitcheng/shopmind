@@ -18,23 +18,46 @@ def _check_api_key(key: str) -> None:
         raise RuntimeError("LLM_API_KEY 仍是占位符，请填真实密钥")
 
 
-@lru_cache
-def get_llm() -> ChatOpenAI:
-    """统一按 OpenAI 协议构造上游客户端，换供应商只改 .env。"""
-    s = get_settings()
-
-    _check_api_key(s.llm_api_key)
-
+@lru_cache(maxsize=8)
+def _build_llm(
+    base_url: str,
+    model: str,
+    api_key: str,
+    temperature: float,
+    timeout: float,
+    thinking: str,
+    max_retries: int,
+) -> ChatOpenAI:
+    """按配置组合缓存实例：同配置复用连接池，配置变了自动重建。"""
     kwargs: dict = {}
     # 智谱专用开关：不传则上游用默认值；显式 disabled 见 docs/ch01-spec.md 4.7
-    if s.llm_thinking:
-        kwargs["extra_body"] = {"thinking": {"type": s.llm_thinking}}
+    if thinking:
+        kwargs["extra_body"] = {"thinking": {"type": thinking}}
 
     return ChatOpenAI(
-        model=s.llm_model,
-        base_url=s.llm_base_url,
-        api_key=s.llm_api_key,
-        temperature=s.llm_temperature,
-        timeout=s.llm_timeout,
+        model=model,
+        base_url=base_url,
+        api_key=api_key,
+        temperature=temperature,
+        timeout=timeout,
+        max_retries=max_retries,
         **kwargs,
+    )
+
+
+def get_llm() -> ChatOpenAI:
+    """统一按 OpenAI 协议构造上游客户端，换供应商只改 .env。
+
+    配置不缓存，所以改完 .env 立刻生效；只有「完全相同的配置」才复用实例。
+    """
+    s = get_settings()
+    _check_api_key(s.llm_api_key)
+    return _build_llm(
+        s.llm_base_url,
+        s.llm_model,
+        s.llm_api_key,
+        s.llm_temperature,
+        s.llm_timeout,
+        s.llm_thinking,
+        s.llm_max_retries,
     )

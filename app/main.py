@@ -48,6 +48,10 @@ class ExtractRequest(BaseModel):
     text: str = Field(min_length=1)
 
 
+class ResetRequest(BaseModel):
+    session_id: str = Field(min_length=1)
+
+
 # ---- SSE 帧 ----
 
 
@@ -89,8 +93,8 @@ async def chat_extract(req: ExtractRequest, service: ChatService = Depends(get_s
 
 
 @app.post("/api/chat/reset")
-async def chat_reset(req: ChatRequest, ) -> dict:
-    store.clear(req.session_id or "")
+async def chat_reset(req: ResetRequest) -> dict:
+    store.clear(req.session_id)
     return {"cleared": req.session_id}
 
 
