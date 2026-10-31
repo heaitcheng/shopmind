@@ -124,4 +124,5 @@ tools/ctx7.mjs      # Context7 文档查询小工具
 
 - `docs/ch01-spec.md` —— 设计定稿，含评估结果与调优记录
 - `docs/ch01-plan.md` —— 实施计划
+- `docs/ch01-review.md` —— 设计复盘：没问的问题、补丁式实现、拍脑袋的配置
 - `dev-notes/ch01.md` —— 开发过程追记
