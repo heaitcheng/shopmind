@@ -172,6 +172,8 @@ class ChatService:
                         "ok": result.ok,
                         "elapsed_ms": result.elapsed_ms,
                         "error": result.error,
+                        # 原始结果随 done 帧交给接口层落库；前端渲染徽章时忽略即可
+                        "result": result.data if result.ok else None,
                     }
                 )
                 executed.append((tc, result))
