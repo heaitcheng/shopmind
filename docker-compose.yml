@@ -1,0 +1,19 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: shopmind-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: shopmind_root
+      MYSQL_DATABASE: shopmind
+      MYSQL_USER: shopmind
+      MYSQL_PASSWORD: shopmind_pw
+    ports:
+      - "3306:3306"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - shopmind_mysql:/var/lib/mysql
+
+volumes:
+  shopmind_mysql:
