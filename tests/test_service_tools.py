@@ -3,6 +3,8 @@
 全部走 FakeModel + 假工具：不发网络请求、不碰数据库。
 """
 
+import json
+
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 
@@ -162,8 +164,11 @@ async def test_done帧带完整工具轨迹(fake_model):
         "ok": True,
         "elapsed_ms": item["elapsed_ms"],
         "error": None,
+        "result": item["result"],
     }
     assert isinstance(item["elapsed_ms"], int)
+    # result 是原始工具返回，供接口层写 tool 消息
+    assert json.loads(item["result"]) == {"当前状态": "派送中", "运单号": "SF0000001001"}
 
 
 async def test_两个工具都执行且顺序对应(fake_model):
