@@ -69,8 +69,8 @@ class Message(Base):
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     # tool 调用那一轮 assistant 的 content 可能是空
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # 模型发起的工具调用申请
-    tool_calls: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # 模型发起的工具调用申请，形如 [{"id":..,"name":..,"arguments":{..}}]
+    tool_calls: Mapped[list | dict | None] = mapped_column(JSON, nullable=True)
     tool_call_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
