@@ -5,6 +5,8 @@ FakeModel 替代真实上游，不发任何网络请求。
 其余用例不碰数据库，也不需要 Docker。
 """
 
+import json
+
 import pytest
 import pytest_asyncio
 from langchain_core.messages import AIMessageChunk
@@ -24,13 +26,72 @@ class FakeModel:
         self.structured_result = None
         self.last_extract_messages: list = []
         self.raise_on_stream: Exception | None = None
+        # 工具流式调用相关的观测点，供 stream_with_tools 用例断言
+        self.bound_names: list[list[str]] = []  # 每次 bind_tools 绑定的工具名
+        self.stream_bounds: list[bool] = []     # 每次 astream 是否绑定了工具
+        self.tool_calls_plan: list = []         # 预设第一趟要吐的 tool_calls
+        self.preamble = ""                      # 第一趟调工具前先吐的正文
+        self._plan_used = False
 
     async def astream(self, messages, **kwargs):
         self.calls.append(list(messages))
+        self.stream_bounds.append(False)
         if self.raise_on_stream:
             raise self.raise_on_stream
         for ch in self.reply:
             yield AIMessageChunk(content=ch)
+
+    def bind_tools(self, tools, **kwargs):
+        self.bound_names.append([t.name for t in tools])
+        outer = self
+
+        class _BoundModel:
+            """只实现 astream：模拟真实上游「绑定工具后」的流式行为。"""
+
+            async def astream(self, messages, **kw):
+                outer.calls.append(list(messages))
+                outer.stream_bounds.append(True)
+                if outer.raise_on_stream:
+                    raise outer.raise_on_stream
+                if outer.tool_calls_plan and not outer._plan_used:
+                    outer._plan_used = True
+                    # 真实上游常见行为：先应一句「我来帮您查一下」再发工具调用
+                    for ch in outer.preamble:
+                        yield AIMessageChunk(content=ch)
+                    for chunk in outer._planned_tool_chunks():
+                        yield chunk
+                    return
+                for ch in outer.reply:
+                    yield AIMessageChunk(content=ch)
+
+        return _BoundModel()
+
+    def _planned_tool_chunks(self) -> list[AIMessageChunk]:
+        """按真实上游的分片形状造工具调用：首片带 name/id，后续片只带 args 片段。"""
+        chunks: list[AIMessageChunk] = []
+        for index, plan in enumerate(self.tool_calls_plan):
+            payload = json.dumps(plan["args"], ensure_ascii=False)
+            third = max(1, len(payload) // 3)
+            fragments = [
+                payload[:third],
+                payload[third : third * 2],
+                payload[third * 2 :],
+            ]
+            for i, fragment in enumerate(fragments):
+                chunks.append(
+                    AIMessageChunk(
+                        content="",
+                        tool_call_chunks=[
+                            {
+                                "name": plan["name"] if i == 0 else None,
+                                "args": fragment,
+                                "id": f"call_{index + 1}" if i == 0 else None,
+                                "index": index,
+                            }
+                        ],
+                    )
+                )
+        return chunks
 
     def with_structured_output(self, schema, method=None, **kwargs):
         self.structured_calls.append((schema, method))
