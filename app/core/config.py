@@ -29,6 +29,11 @@ class Settings(BaseSettings):
 
     shop_name: str = "小店"
 
+    # 数据层。空字符串默认，避免没配 .env 时导入即崩
+    database_url: str = ""
+    tool_timeout: float = 5.0
+    tool_max_retries: int = 1
+
 
 def get_settings() -> Settings:
     """故意不缓存：改完 .env 下一次请求就生效，不用重启服务。"""

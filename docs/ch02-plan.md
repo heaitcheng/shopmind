@@ -88,6 +88,10 @@ volumes:
 
 - 验证：`docker compose up -d` 后 `docker compose ps` 显示 healthy/running；`docker exec shopmind-mysql mysqladmin ping -uroot -pshopmind_root` 返回 `mysqld is alive`
 
+## 任务 B2 + B3（合并执行）
+
+> 计划变更：B2 只有 15 行，单独派子代理编排成本大于任务本身，与 B3 合并。此改动记入 `dev-notes/ch02.md`。
+
 ## 任务 B2：引擎与会话工厂
 
 - 文件：`app/db/base.py`
