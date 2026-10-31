@@ -32,3 +32,13 @@ def test_extract_instruction_点名输出字段():
     assert "order_id" in text
     assert "missing_fields" in text
     assert "不要编造" in text
+
+
+def test_system_prompt_含工具使用约束():
+    """工具存在时，prompt 必须约束「先查再答、只答工具给的、失败不编」。"""
+    text = render_system("测试小店")
+    assert "工具" in text
+    assert "先调用对应工具查" in text      # 能查的必须查，不许凭印象
+    assert "工具返回什么就说什么" in text  # 不补充工具没给的信息
+    assert "不编造查询结果" in text        # 失败时不许编
+    assert "如实说没查到" in text          # 查空要认，不许换词瞎猜
