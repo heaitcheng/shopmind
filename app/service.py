@@ -167,6 +167,7 @@ class ChatService:
                 }
                 tool_trace.append(
                     {
+                        "id": tc.get("id"),
                         "name": name,
                         "args": args,
                         "ok": result.ok,

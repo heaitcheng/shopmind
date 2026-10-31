@@ -159,6 +159,7 @@ async def test_done帧带完整工具轨迹(fake_model):
     assert len(done["tools"]) == 1
     item = done["tools"][0]
     assert item == {
+        "id": "call_1",
         "name": "fake_logistics",
         "args": {"order_id": 1001},
         "ok": True,
