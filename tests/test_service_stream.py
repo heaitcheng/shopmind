@@ -72,3 +72,40 @@ async def test_超预算时trimmed大于零(fake_model):
 
     events = await _collect(svc.stream("s1", "再问一次"))
     assert events[-1]["data"]["trimmed"] > 0
+
+
+async def test_首个token不能是前导换行(fake_model):
+    """有 assistant 历史时 GLM 会在回答前吐一个换行，推给前端就是一行空白。"""
+    fake_model.reply = "\n\n您的订单号是 SO20261029001。"
+    svc = _service(fake_model)
+
+    events = await _collect(svc.stream("s1", "我刚才说的订单号是多少？"))
+
+    first_delta = events[0]["data"]["delta"]
+    assert first_delta.strip() != ""
+    assert first_delta == "您"
+    assert events[-1]["data"]["content"] == "您的订单号是 SO20261029001。"
+
+
+async def test_回应中间的空行要保留(fake_model):
+    """只吃前导空白，正文里的分段是正常排版，不能一起吃掉。"""
+    fake_model.reply = "\n好的，分两步：\n\n第一，先确认订单；\n第二，再寄回。"
+    svc = _service(fake_model)
+
+    events = await _collect(svc.stream("s1", "怎么退货"))
+
+    content = events[-1]["data"]["content"]
+    assert content.startswith("好的")
+    assert "\n\n第一" in content
+
+
+async def test_首块全是空白时不产生空token事件(fake_model):
+    fake_model.reply = "\n\n\n正文在这里"
+    svc = _service(fake_model)
+
+    events = await _collect(svc.stream("s1", "随便问"))
+
+    tokens = [e for e in events if e["event"] == "token"]
+    assert tokens[0]["data"]["delta"].strip() != ""
+    # 连续的空白首块应被吞掉，不能变成多个空 token
+    assert all(t["data"]["delta"].strip() != "" for t in tokens)

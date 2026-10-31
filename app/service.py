@@ -59,11 +59,21 @@ class ChatService:
         messages, trimmed = self._build_messages(self.store.get(sid), user_input)
 
         parts: list[str] = []
+        # 有 assistant 历史时，GLM 会在回答前吐一个换行当段落分隔。
+        # 在推送前把它吃掉，否则前端 pre-wrap 会渲染出一行空白。
+        pending_leading = True
+
         async for chunk in self.model.astream(messages):
             text = chunk.content
-            if isinstance(text, str) and text:
-                parts.append(text)
-                yield {"event": "token", "data": {"delta": text}}
+            if not isinstance(text, str) or not text:
+                continue
+            if pending_leading:
+                text = text.lstrip()
+                if not text:  # 整块都是空白，继续等正文
+                    continue
+                pending_leading = False
+            parts.append(text)
+            yield {"event": "token", "data": {"delta": text}}
 
         answer = "".join(parts)
         self.store.append(sid, [HumanMessage(user_input), AIMessage(answer)])
