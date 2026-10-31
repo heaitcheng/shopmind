@@ -23,12 +23,29 @@ _PRODUCTS = [
 
 _CITIES = ["上海市", "北京市", "杭州市", "成都市", "广州市", "武汉市", "南京市", "西安市"]
 
-_ORDER_STATUSES = ["待发货", "已发货", "已完成", "已退款"]
-
 # (承运商, 运单号前缀)
 _CARRIERS = [("顺丰", "SF"), ("中通", "ZTO"), ("圆通", "YTO"), ("京东物流", "JD")]
 
 _LOGISTICS_STAGES = ["已揽收", "运输中", "派送中", "已签收"]
+
+# 订单状态必须与物流阶段对得上：两个工具独立随机会出现「待发货 + 已签收」这种矛盾，
+# 演示时一眼就露馅。订单状态统一由物流阶段派生，保证跨工具一致。
+_STAGE_TO_STATUS = {
+    "已揽收": "已发货",
+    "运输中": "已发货",
+    "派送中": "已发货",
+    "已签收": "已完成",
+}
+
+
+def _logistics_stage(order_id: int) -> str:
+    """物流阶段。query_order 与 query_logistics 共用，保证两边口径一致。
+
+    用独立的种子偏移，避免与承运商抽取落在同一随机序列上导致强相关。
+    """
+    return _LOGISTICS_STAGES[
+        random.Random(order_id + 200000).randrange(len(_LOGISTICS_STAGES))
+    ]
 
 
 def _format_time(offset_days: int, offset_hours: int, offset_minutes: int) -> str:
@@ -52,14 +69,17 @@ def query_order(order_id: int) -> dict:
     name, unit_price, _material, _spec = _PRODUCTS[rng.randrange(len(_PRODUCTS))]
     quantity = rng.randint(1, 3)
     amount = round(unit_price * quantity, 2)
-    status = _ORDER_STATUSES[rng.randrange(len(_ORDER_STATUSES))]
     city = _CITIES[rng.randrange(len(_CITIES))]
+    placed_at = _format_time(
+        rng.randint(0, 45), rng.randint(0, 23), rng.randint(0, 59)
+    )
+    # 少部分订单签收后退了款，其余状态跟随物流阶段
+    refunded = rng.random() < 0.12
+    status = "已退款" if refunded else _STAGE_TO_STATUS[_logistics_stage(order_id)]
 
     return {
         "订单号": f"SO{order_id:08d}",
-        "下单时间": _format_time(
-            rng.randint(0, 45), rng.randint(0, 23), rng.randint(0, 59)
-        ),
+        "下单时间": placed_at,
         "商品名": name,
         "数量": quantity,
         "金额": amount,
@@ -108,7 +128,7 @@ def query_logistics(order_id: int) -> dict:
     rng = random.Random(order_id + 100000)
 
     carrier, code = _CARRIERS[rng.randrange(len(_CARRIERS))]
-    stage = _LOGISTICS_STAGES[rng.randrange(len(_LOGISTICS_STAGES))]
+    stage = _logistics_stage(order_id)
     city = _CITIES[rng.randrange(len(_CITIES))]
 
     traces = {
