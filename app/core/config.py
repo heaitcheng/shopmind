@@ -31,6 +31,8 @@ class Settings(BaseSettings):
 
     # 数据层。空字符串默认，避免没配 .env 时导入即崩
     database_url: str = ""
+    # 测试专用库。测试夹具会清表，必须和演示库分开，否则跑一次 pytest 演示数据就没了
+    test_database_url: str = ""
     tool_timeout: float = 5.0
     tool_max_retries: int = 1
 
