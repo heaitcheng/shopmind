@@ -13,6 +13,14 @@ def test_system_prompt_含关键行为约束():
     assert "追问" in text            # 信息不足先问
 
 
+def test_system_prompt_要求应答回顾类问题():
+    """模型原本会答「没有记录」，即使上下文就在手里。"""
+    text = render_system("测试小店")
+    assert "我刚才说了什么" in text
+    assert "复述" in text
+    assert "没有记录" in text        # 明确禁止这种说法
+
+
 def test_system_prompt_模板有占位符():
     from app.prompts import SYSTEM_PROMPT
 

@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     llm_timeout: float = 60.0
     # 上游 429/5xx 时的自动重试次数，由 openai SDK 做指数退避
     llm_max_retries: int = 2
+    # 显式代理。留空则忽略环境里的 http_proxy/https_proxy（默认行为，更可预测）
+    llm_proxy: str = ""
     # 智谱专用。留空则不发送 thinking 参数；必须为 disabled，原因见 docs/ch01-spec.md 4.7
     llm_thinking: str = ""
 

@@ -230,6 +230,14 @@ async function send() {
   const text = input.value.trim();
   if (!text || busy) return;
 
+  // 会话 id 由前端生成并稳定持有：如果首条请求失败拿不到 done 事件，
+  // 后续消息仍会复用同一个 id，不会变成每次都是新会话。
+  if (!sessionId) {
+    sessionId = (crypto.randomUUID && crypto.randomUUID().replace(/-/g, ''))
+      || ('sess' + Date.now() + Math.random().toString(16).slice(2));
+    sidLabel.textContent = '会话 ' + sessionId.slice(0, 6);
+  }
+
   input.value = '';
   input.style.height = 'auto';
   addRow('user', text);
