@@ -71,8 +71,10 @@
     scroll-behavior: smooth;
   }
 
-  .row { display: flex; }
-  .row.user { justify-content: flex-end; }
+  /* 竖排：工具徽章在上，气泡在下 */
+  .row { display: flex; flex-direction: column; }
+  .row.user { align-items: flex-end; }
+  .row.bot { align-items: flex-start; }
   .bubble {
     max-width: 78%;
     padding: 10px 14px;
@@ -94,6 +96,65 @@
     background: #fdf1f0;
     border: 1px solid #f3d3d0;
     color: var(--danger);
+  }
+
+  /* 工具轨迹徽章 */
+  .tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+    max-width: 78%;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #f7f7fa;
+    color: var(--muted);
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* 状态点用 CSS 画，不依赖 emoji 字体 */
+  .badge::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.55;
+  }
+  .badge.running {
+    border-color: #c9d6ee;
+    background: #eef3fc;
+    color: #3b6fc4;
+  }
+  .badge.running::before {
+    opacity: 1;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  .badge.ok {
+    border-color: #cfe8d5;
+    background: #f0f9f2;
+    color: #2f7a45;
+  }
+  .badge.error {
+    border-color: #f3d3d0;
+    background: #fdf1f0;
+    color: var(--danger);
+    cursor: help;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 1; }
   }
   .meta {
     font-size: 11px;
@@ -197,6 +258,49 @@ function setBusy(v) {
   input.disabled = v;
 }
 
+// ---- 工具轨迹徽章 ----
+// 每轮对话重置一次，避免同工具同参数在多轮之间互相覆盖
+let badgeEls = new Map();
+
+function argsText(args) {
+  const s = JSON.stringify(args ?? {});
+  return s.length > 42 ? s.slice(0, 39) + '…' : s;
+}
+
+function ensureToolbar(bubble) {
+  let bar = bubble.parentElement.querySelector('.tools');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.className = 'tools';
+    bubble.parentElement.insertBefore(bar, bubble);
+  }
+  return bar;
+}
+
+function upsertBadge(bubble, payload) {
+  const key = payload.name + '|' + JSON.stringify(payload.args ?? {});
+  let el = badgeEls.get(key);
+  if (!el) {
+    el = document.createElement('span');
+    ensureToolbar(bubble).appendChild(el);
+    badgeEls.set(key, el);
+  }
+  const call = `${payload.name}(${argsText(payload.args)})`;
+  if (payload.status === 'running') {
+    el.className = 'badge running';
+    el.textContent = `${call} 调用中`;
+    el.title = '';
+  } else if (payload.status === 'ok') {
+    el.className = 'badge ok';
+    el.textContent = `${call} · ${payload.elapsed_ms ?? 0}ms`;
+    el.title = '';
+  } else {
+    el.className = 'badge error';
+    el.textContent = `${call} 失败`;
+    el.title = payload.error || '工具调用失败';
+  }
+}
+
 input.addEventListener('input', () => {
   input.style.height = 'auto';
   input.style.height = Math.min(input.scrollHeight, 140) + 'px';
@@ -243,6 +347,7 @@ async function send() {
   addRow('user', text);
   const bubble = addRow('bot', '');
   bubble.classList.add('typing');
+  badgeEls = new Map();
   setBusy(true);
 
   let answer = '';
@@ -302,9 +407,19 @@ async function send() {
         bubble.textContent = answer;
         bubble.classList.add('typing');
         log.scrollTop = log.scrollHeight;
+      } else if (event === 'tool') {
+        upsertBadge(bubble, payload);
+        log.scrollTop = log.scrollHeight;
       } else if (event === 'done') {
         answer = payload.content ?? answer;
         bubble.textContent = answer;
+        // 兜底：万一 tool 帧漏接（断线重连、代理吞帧），用 done 里的轨迹补齐
+        for (const t of payload.tools || []) {
+          const key = t.name + '|' + JSON.stringify(t.args ?? {});
+          if (!badgeEls.has(key)) {
+            upsertBadge(bubble, { ...t, status: t.ok ? 'ok' : 'error' });
+          }
+        }
         sessionId = payload.session_id;
         sidLabel.textContent = '会话 ' + sessionId.slice(0, 6);
         if (payload.trimmed > 0) {
@@ -323,7 +438,7 @@ async function send() {
     bubble.textContent = answer || ('出错了：' + err.message);
   } finally {
     bubble.classList.remove('typing');
-    if (!answer && !gotToken) {
+    if (!answer && !gotToken && badgeEls.size === 0) {
       bubble.parentElement.className = 'row error';
       bubble.textContent = bubble.textContent || '没有收到回复，请重试';
     }
