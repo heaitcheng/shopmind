@@ -14,8 +14,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.config import get_settings  # noqa: E402
-from app.llm import get_llm  # noqa: E402
+from app.core.config import get_settings  # noqa: E402
+from app.core.llm import get_llm  # noqa: E402
 from app.memory import SessionStore  # noqa: E402
 from app.service import ChatService  # noqa: E402
 

@@ -1,4 +1,4 @@
-from app.config import Settings
+from app.core.config import Settings
 from app.memory import SessionStore
 from app.schemas import AfterSaleIntent, AfterSaleRequest
 from app.service import ChatService

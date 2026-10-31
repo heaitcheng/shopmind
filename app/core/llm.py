@@ -3,7 +3,7 @@ from functools import lru_cache
 
 from langchain_openai import ChatOpenAI
 
-from app.config import get_settings
+from app.core.config import get_settings
 
 
 def _check_api_key(key: str) -> None:

@@ -1,4 +1,4 @@
-from app.prompts import render_extract_instruction, render_system
+from app.core.prompts import render_extract_instruction, render_system
 
 
 def test_system_prompt_带上店铺名():
@@ -22,7 +22,7 @@ def test_system_prompt_要求应答回顾类问题():
 
 
 def test_system_prompt_模板有占位符():
-    from app.prompts import SYSTEM_PROMPT
+    from app.core.prompts import SYSTEM_PROMPT
 
     assert "shop_name" in SYSTEM_PROMPT.input_variables
 

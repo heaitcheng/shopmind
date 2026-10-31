@@ -3,9 +3,9 @@ from collections.abc import AsyncIterator
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from app.config import Settings
+from app.core.config import Settings
+from app.core.prompts import render_extract_instruction, render_system
 from app.memory import SessionStore, build_context
-from app.prompts import render_extract_instruction, render_system
 from app.schemas import AfterSaleRequest
 
 

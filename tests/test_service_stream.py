@@ -1,6 +1,6 @@
 from langchain_core.messages import HumanMessage
 
-from app.config import Settings
+from app.core.config import Settings
 from app.memory import SessionStore
 from app.service import ChatService
 

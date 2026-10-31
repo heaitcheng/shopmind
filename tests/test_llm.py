@@ -1,6 +1,6 @@
 import pytest
 
-from app.llm import _check_api_key, _http_clients
+from app.core.llm import _check_api_key, _http_clients
 
 
 def test_空密钥报清晰错误():
