@@ -46,10 +46,11 @@ def client(fake_model):
     from fastapi.testclient import TestClient
 
     import app.main as main_module
+    from app.api.routes import get_chat_model, store
 
-    main_module.store.clear_all()
-    main_module.app.dependency_overrides[main_module.get_chat_model] = lambda: fake_model
+    store.clear_all()
+    main_module.app.dependency_overrides[get_chat_model] = lambda: fake_model
     with TestClient(main_module.app) as c:
         yield c
     main_module.app.dependency_overrides.clear()
-    main_module.store.clear_all()
+    store.clear_all()
