@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Ticket
 
 # Literal 让 args_schema 变成枚举，模型只能从中选一个
-TicketType = Literal["退货", "换货", "退款", "物流异常", "其他"]
+TicketType = Literal["售后", "投诉", "咨询"]
 
 _CREATED_HINT = "工单已创建，人工客服会在 24 小时内联系用户"
 
@@ -27,8 +27,11 @@ def make_create_ticket(session: AsyncSession, conversation_id: int):
         """创建一张人工客服工单，把需要人工跟进的问题转出去。
 
         用户的问题 FAQ 查不到、或明确要求「转人工 / 投诉 / 找客服」时使用。
-        description 写清用户遇到的具体问题（商品、订单号、诉求都要带上），
-        不能为空；ticket_type 只能从 退货 / 换货 / 退款 / 物流异常 / 其他 中选一个。
+        description 写清用户遇到的具体问题（订单号、商品、诉求都要带上），不能为空。
+        ticket_type 三选一：
+        - 售后：退货、换货、退款、维修、商品质量问题等具体售后处理需求
+        - 投诉：对服务态度、发货延迟、商品描述不符等表达不满，要求追责或赔偿
+        - 咨询：售前或流程类疑问，例如怎么开发票、能否指定快递、活动规则
         返回工单号、工单类型、状态和给用户的提示语。
         注意：当前会话 id 由系统自动带上，不需要也不能作为参数传入。
         """
@@ -52,7 +55,7 @@ def make_create_ticket(session: AsyncSession, conversation_id: int):
             conversation_id=conversation_id,
             description=detail,
             ticket_type=ticket_type,
-            status="open",
+            status="待处理",
         )
         session.add(ticket)
         await session.commit()

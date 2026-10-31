@@ -89,14 +89,15 @@ curl -N -X POST http://127.0.0.1:8000/api/chat/stream \
   -H "Content-Type: application/json" \
   -d '{"message":"我要退货"}'
 
-# 2 多轮：第二轮应能答出第一轮给的订单号
+# 2 多轮：首轮不带 conversation_id，从 done 帧取出，第二轮带上；应能答出订单号
 curl -N -X POST http://127.0.0.1:8000/api/chat/stream \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"demo1","message":"我的订单是 SO20261029001，尺码不合适想退货"}'
+  -d '{"message":"我的订单是 SO20261029001，尺码不合适想退货"}'
+# ↑ done 帧里的 conversation_id 记下来，下面用它
 
 curl -N -X POST http://127.0.0.1:8000/api/chat/stream \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"demo1","message":"我刚才说的订单号是多少？"}'
+  -d '{"conversation_id":1,"message":"我刚才说的订单号是多少？"}'
 
 # 3 结构化：应返回 order_id / intent / reason / expected_solution / missing_fields / confidence
 curl -s -X POST http://127.0.0.1:8000/api/chat/extract \
@@ -117,12 +118,13 @@ event: tool
 data: {"name": "query_logistics", "args": {"order_id": 1001}, "status": "ok", "elapsed_ms": 1, "error": null}
 
 event: done
-data: {"content": "完整回复", "session_id": "xxx", "trimmed": 0, "tools": [...]}
+data: {"content": "完整回复", "conversation_id": 3, "trimmed": 0, "tools": [...]}
 
 event: error
 data: {"message": "上游超时"}
 ```
 
+- `conversation_id`：会话主键，**首轮请求不带、由 done 帧返回**，之后每轮请求都带上它。
 - `trimmed`：本轮因 token 预算被丢弃的历史消息条数。
 - `tool` 帧：`status` 取 `running` / `ok` / `error` 三态，同一次调用会推两帧（先 running 再终结态）。
 - `done.tools`：本轮全部工具轨迹，每项含 `id` / `name` / `args` / `ok` / `elapsed_ms` / `error` / `result`。
@@ -204,12 +206,13 @@ docker-compose.yml    # MySQL 8.4，utf8mb4
 - **只做单轮工具调用**：链式调用（先查订单再按状态决定查什么）和多单批量查询做不了。
 - **假数据与真实业务无关**：订单 1001 永远是那件衬衫，改不了。
 - **工单号并发不安全**：序号取「当天最大值 + 1」，并发创建理论上会撞主键。单机演示无碍。
-- **无鉴权**：`session_id` 请求方自报，拿到即可读/写该会话。
+- **无鉴权**：`conversation_id` 是自增整数，可被枚举；拿到即可读/写该会话。上公网必须加鉴权。
 - Anthropic 官方 API 不是 OpenAI 协议，要接原生 Claude 需经 one-api / LiteLLM 等网关转一层。
 - 上下文裁剪按 tiktoken `cl100k_base` 计数，对非 OpenAI 模型是近似值。
 
 ## 文档
 
+- `docs/ch02-ddl.sql` —— 四张表的建表语句（结构以它为准）
 - `docs/ch02-spec.md` / `docs/ch02-plan.md` / `docs/ch02-verify.md` —— 工具调用一章的设计、计划、验收
 - `docs/ch01-spec.md` / `docs/ch01-plan.md` —— 纯对话一章的设计定稿与实施计划
 - `docs/ch01-review.md` —— 设计复盘：没问的问题、补丁式实现、拍脑袋的配置

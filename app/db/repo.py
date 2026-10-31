@@ -3,46 +3,34 @@
 只做落库，不含业务判断；事务由调用方（或本模块的 append_turn）统一提交。
 """
 
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Conversation, Message
 
 
-async def get_or_create_conversation(
-    session: AsyncSession, session_key: str, user_id: str
+async def resolve_conversation(
+    session: AsyncSession, conversation_id: int | None, user_id: str
 ) -> Conversation:
-    """按 session_key 取会话，没有就建一条。
+    """拿到本轮该写进哪条会话。
 
-    两个请求同时首次进入时会都查不到然后都插入，后者撞唯一索引。
-    这里吞掉 IntegrityError 并重查，调用方无需关心并发。
+    - 前端带了 id 且库里有：直接复用
+    - 没带 id，或带了但库里没有（库被重建过、前端留着旧 id）：新建一条
 
-    注意：撞唯一索引时会 rollback，**整个事务**一起回滚。所以本函数必须
-    在一个事务的最开始调用，不能放在已经写入了其他东西之后。
+    id 查不到时选择新建而不是报错，是为了让「清库后前端还存着旧 id」
+    这种场景能自愈，不至于把用户卡死在报错上。
     """
-    existing = (
-        await session.execute(
-            select(Conversation).where(Conversation.session_key == session_key)
-        )
-    ).scalar_one_or_none()
-    if existing is not None:
-        return existing
+    if conversation_id is not None:
+        existing = await session.get(Conversation, conversation_id)
+        if existing is not None:
+            return existing
 
-    conv = Conversation(session_key=session_key, user_id=user_id, status="open")
-    session.add(conv)
-    try:
-        await session.flush()
-    except IntegrityError:
-        # 别的事务抢先插入了同 key，回滚后重查必然能查到
-        await session.rollback()
-        return (
-            await session.execute(
-                select(Conversation).where(Conversation.session_key == session_key)
-            )
-        ).scalar_one()
-
-    return conv
+    conversation = Conversation(user_id=user_id)
+    session.add(conversation)
+    await session.flush()
+    # status / created_at 是服务端默认值，flush 后处于过期状态；
+    # 不 refresh 的话调用方一读属性就会在 async 上下文里触发 IO 而报 MissingGreenlet
+    await session.refresh(conversation)
+    return conversation
 
 
 async def append_turn(

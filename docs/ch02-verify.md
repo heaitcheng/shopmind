@@ -60,19 +60,19 @@ docker compose up -d
 ## 3. 自动化测试
 
 ```
-112 passed
+116 passed
 ```
 
 | 分类 | 条数 | 说明 |
 |---|---|---|
-| ch01 纯对话与抽取 | 50 | 原有链路未被破坏 |
-| 数据库与种子 | 11 | 建表、字符集、测试库隔离 |
-| 工具层 | 27 | 注册表/执行器/五个工具 |
+| ch01 纯对话与抽取 | 48 | 原有链路未被破坏 |
+| Prompt | 6 | 工具约束、回顾类问题 |
+| 数据库与会话落库 | 15 | 建表、字符集、ENUM 约束、会话解析、消息落库形态 |
+| 工具层 | 29 | 注册表/执行器/五个工具 |
 | 编排 | 12 | 单轮两趟流程、帧顺序、失败回灌 |
 | 接口 | 6 | SSE 协议、落库调用、落库失败不影响响应 |
-| Prompt | 6 | 工具约束、回顾类问题 |
 
-全部不依赖真实模型；接口层测试还不依赖 MySQL。
+全部不依赖真实模型。数据库那 15 条连真 MySQL（`shopmind_test`），接口层 6 条用依赖替换、不连库。
 
 ## 4. 标注样例评估
 
@@ -126,7 +126,7 @@ Prompt 与工具描述属于不可单测产物，按项目约定用这组样例�
 
 ### 5.5 会话未做归属校验
 
-`session_id` 由前端生成后原样传给后端，无鉴权。任何人拿到这个 id 就能读/续写该会话、清空它。本地演示无碍，上公网必须改。
+`conversation_id` 是自增整数，可被枚举。任何人拿到这个 id 就能读/续写该会话、清空它。本地演示无碍，上公网必须加鉴权。
 
 这条在 `docs/ch01-review.md` 里已经记过一次，ch02 仍然没做——不在本章范围。
 
@@ -135,6 +135,16 @@ Prompt 与工具描述属于不可单测产物，按项目约定用这组样例�
 `app/db/session.py` 的引擎用 `lru_cache` 缓存。改 `.env` 里的 `DATABASE_URL` 后**必须重启服务**，不像 `LLM_API_KEY` 那样即时生效。
 
 理由：重建引擎要丢弃整个连接池，成本远高于重读一个字符串。
+
+## 5.7 表结构与 DDL 的对齐情况
+
+四张表以 `docs/ch02-ddl.sql` 为准，由 SQLAlchemy 模型生成后逐项核对过：
+`BIGINT UNSIGNED` 主外键、四组 `ENUM` 值域、`idx_user_id` / `idx_conversation_id` / `idx_category`
+索引名、`fk_messages_conversation` / `fk_tickets_conversation` 外键名、字段长度、
+`created_at` 的 `DEFAULT CURRENT_TIMESTAMP`、表和列的 `COMMENT`，全部一致。
+
+唯一差别：生成的 DDL 在每个字符列上都带了 `COLLATE utf8mb4_unicode_ci`（SQLAlchemy
+`mysql_collate` 的行为），手写 DDL 只在表级声明。功能等价，不影响排序与匹配。
 
 ## 6. 关键实现事实（留给后续章节）
 

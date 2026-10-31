@@ -47,42 +47,21 @@ docker-compose.yml     # MySQL 8
 
 ## 4. 数据模型
 
-```python
-# faq
-id: int PK
-question: str(500)
-answer: Text
-category: str(50)
-created_at: datetime
+完整 DDL 见 `docs/ch02-ddl.sql`。要点：
 
-# conversations
-id: int PK
-session_key: str(64) unique   # ← 规格外的必要补充，见下方说明
-user_id: str(64)              # 无鉴权，存前端生成的匿名 id
-status: str(20)               # open / closed
-created_at: datetime
+- 主键与外键统一 `BIGINT UNSIGNED`
+- 状态、角色、类型一律用 MySQL `ENUM`，值域由数据库兜住
+- `created_at` 用 `DEFAULT CURRENT_TIMESTAMP`，两个带更新的表另有 `ON UPDATE CURRENT_TIMESTAMP`
+- 表和每个列都写 `COMMENT`，`SHOW CREATE TABLE` 时能直接读懂字段语义
+- 字符集 `utf8mb4` + `utf8mb4_unicode_ci`，否则中文 LIKE 会出问题
 
-# messages
-id: int PK
-conversation_id: int FK
-role: str(16)             # user / assistant / tool
-content: Text
-tool_calls: JSON | None   # 模型发起的工具调用申请
-tool_call_id: str(64) | None
-created_at: datetime
+**会话标识用 `conversations.id`**：DDL 里没有能当会话键的字符串字段（`user_id` 只能区分人，不能区分「今天问退货、明天问发票」两通会话）。
 
-# tickets
-ticket_no: str(32) PK     # 形如 TK20261031-0001
-conversation_id: int FK
-description: Text
-ticket_type: str(32)
-status: str(20)           # open / processing / closed
-created_at: datetime
-```
+做法：首轮请求不带 `conversation_id`，后端建会话后在 `done` 帧返回 `id`，前端持有并逐轮回传；带了但库里查不到（清过库、前端留着旧 id）按新会话处理，不报错。
 
-字符集 `utf8mb4` + `utf8mb4_unicode_ci`，否则中文 LIKE 会出问题。
+代价：首轮请求失败时前端拿不到 id，用户重试会多建一条空会话。不影响正确性，只是库里多一行。
 
-**为什么多一个 `session_key`**：用户给的 conversations 字段是「用户、处理状态、创建时间」，没有主键类型也没说怎么和 ch01 的 `session_id` 对上。ch01 的 `session_id` 是前端生成的字符串（如 `nl2`、uuid hex），而 `conversations.id` 是自增 int，两者必须有映射才能把消息挂到正确的会话上。加一列 `session_key` 存原始字符串、加唯一索引，是改动成本最低的做法。如果不加，就只能把 `user_id` 当会话键用，那样一个用户只能有一个会话，「新开会话」这个动作就废了。
+> 早期实现曾加过一列 `session_key` 存前端生成的 uuid 字符串做映射。DDL 定稿后该字段已移除，前端也不再自造 id。
 
 ## 5. 五个工具
 
@@ -92,7 +71,7 @@ created_at: datetime
 | `query_product` | `product_id: int` | 同上 |
 | `query_logistics` | `order_id: int` | 同上 |
 | `query_faq` | `keyword: str` | `SELECT ... WHERE question LIKE %kw% OR answer LIKE %kw%` |
-| `create_ticket` | `description: str, ticket_type: str` | 写 tickets 表 |
+| `create_ticket` | `description: str, ticket_type: 售后/投诉/咨询` | 写 tickets 表，`conversation_id` 由闭包注入 |
 
 **假数据必须确定性**：`random.Random(order_id)` 播种。同一订单号永远返回同样的物流，演示不飘、测试可断言。
 
@@ -164,7 +143,7 @@ event: token / done / error   # 与 ch01 一致
 - 只在整轮成功后落库，与 ch01「流失败不写历史」的约定一致
 - `conversation_id` 即 ch01 的 `session_id`，映射成 int 后存
 
-**注意**：ch01 的 `session_id` 是前端生成的字符串，本章 `conversations.id` 是自增 int。需要一个映射：首次请求时按 `user_id + session_key` 建 conversation，返回 int id。ch01 的进程内 `SessionStore` 继续用于上下文裁剪，数据库只做记录，不参与上下文组装。
+**注意**：会话标识直接用 `conversations.id`。首轮请求不带，后端建会话后在 `done` 帧返回，前端逐轮回传。ch01 的进程内 `SessionStore` 继续用于上下文裁剪（key 取 `str(conversation_id)`），数据库只做记录，不参与上下文组装。
 
 ## 10. 测试策略（用户已定：全部连真 MySQL）
 

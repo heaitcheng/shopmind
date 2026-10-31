@@ -46,14 +46,14 @@ def test_done事件回传会话id(client, fake_model):
     done = events[-1][1]
 
     assert done["content"] == fake_model.reply
-    assert done["session_id"]
+    assert done["conversation_id"]
 
 
 def test_复用会话id能接住上文(client, fake_model):
     first = client.post("/api/chat/stream", json={"message": "我的订单是 SO20261029001"})
-    sid = _parse_sse(first.text)[-1][1]["session_id"]
+    cid = _parse_sse(first.text)[-1][1]["conversation_id"]
 
-    client.post("/api/chat/stream", json={"session_id": sid, "message": "刚才那个订单号是多少"})
+    client.post("/api/chat/stream", json={"conversation_id": cid, "message": "刚才那个订单号是多少"})
 
     joined = " ".join(str(m.content) for m in fake_model.calls[-1])
     assert "SO20261029001" in joined
@@ -73,21 +73,23 @@ def test_缺少message字段返回422(client):
     assert client.post("/api/chat/stream", json={}).status_code == 422
 
 
-def test_清空会话只需session_id不要求message(client, fake_model):
-    """页面上的清空按钮只发 session_id，早期版本误用了 ChatRequest 会 422。"""
-    client.post("/api/chat/stream", json={"session_id": "s1", "message": "我要退货"})
+def test_清空会话只需conversation_id不要求message(client, fake_model):
+    """页面上的清空按钮只发 conversation_id，早期版本误用了 ChatRequest 会 422。"""
+    first = client.post("/api/chat/stream", json={"message": "我要退货"})
+    cid = _parse_sse(first.text)[-1][1]["conversation_id"]
 
-    r = client.post("/api/chat/reset", json={"session_id": "s1"})
+    r = client.post("/api/chat/reset", json={"conversation_id": cid})
 
     assert r.status_code == 200
-    assert r.json() == {"cleared": "s1"}
+    assert r.json() == {"cleared": cid}
 
 
 def test_清空后上下文不再延续(client, fake_model):
-    client.post("/api/chat/stream", json={"session_id": "s1", "message": "我的订单是 SO20261029001"})
-    client.post("/api/chat/reset", json={"session_id": "s1"})
+    first = client.post("/api/chat/stream", json={"message": "我的订单是 SO20261029001"})
+    cid = _parse_sse(first.text)[-1][1]["conversation_id"]
+    client.post("/api/chat/reset", json={"conversation_id": cid})
 
-    client.post("/api/chat/stream", json={"session_id": "s1", "message": "接着说"})
+    client.post("/api/chat/stream", json={"conversation_id": cid, "message": "接着说"})
 
     joined = " ".join(str(m.content) for m in fake_model.calls[-1])
     assert "SO20261029001" not in joined

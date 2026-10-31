@@ -133,26 +133,41 @@ FAQ_SEED: Final[tuple[tuple[str, str, str], ...]] = (
 # 示例会话，仅供人工查看；不灌 tickets。
 CONVERSATION_SEED: Final[tuple[dict, ...]] = (
     {
-        "session_key": "sess-demo-0001",
         "user_id": "anon-demo-1",
-        "status": "open",
+        "status": "已结束",
         "messages": [
-            ("user", "退货政策是什么？", None),
-            (
-                "assistant",
-                "自签收之日起 7 天内，商品未拆封且不影响二次销售即可申请无理由退货。",
-                None,
-            ),
+            {"role": "user", "content": "退货政策是什么？"},
+            {
+                "role": "assistant",
+                "content": "自签收之日起 7 天内，商品未拆封且不影响二次销售即可申请无理由退货。",
+            },
         ],
     },
     {
-        "session_key": "sess-demo-0002",
         "user_id": "anon-demo-2",
-        "status": "closed",
+        "status": "已转人工",
         "messages": [
-            ("user", "退货运费谁承担？", None),
-            ("tool", None, {"name": "search_faq", "arguments": {"query": "退货运费"}}),
-            ("assistant", "质量问题由本店承担退货运费，七天无理由退货由买家承担。", None),
+            {"role": "user", "content": "退货运费谁承担？"},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_demo_1",
+                        "name": "query_faq",
+                        "arguments": {"keyword": "退货运费"},
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "content": '{"命中数": 1, "条目": [{"问题": "退货运费谁承担？"}]}',
+                "tool_call_id": "call_demo_1",
+            },
+            {
+                "role": "assistant",
+                "content": "质量问题由本店承担退货运费，七天无理由退货由买家承担。",
+            },
         ],
     },
 )
@@ -191,15 +206,20 @@ async def seed(engine) -> None:
             )
             for item in CONVERSATION_SEED:
                 conv = Conversation(
-                    session_key=item["session_key"],
                     user_id=item["user_id"],
                     status=item["status"],
                 )
                 session.add(conv)
                 await session.flush()  # 拿到自增 id 供 messages 使用
                 session.add_all(
-                    Message(conversation_id=conv.id, role=role, content=content, tool_calls=tools)
-                    for role, content, tools in item["messages"]
+                    Message(
+                        conversation_id=conv.id,
+                        role=msg["role"],
+                        content=msg.get("content"),
+                        tool_calls=msg.get("tool_calls"),
+                        tool_call_id=msg.get("tool_call_id"),
+                    )
+                    for msg in item["messages"]
                 )
 
 

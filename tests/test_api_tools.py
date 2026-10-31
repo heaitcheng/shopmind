@@ -44,8 +44,8 @@ def tool_client(monkeypatch, fake_model):
     """不连库的 TestClient：会话、落库、注册表工厂全部替换。"""
     recorded = {"appended": [], "conv": None, "fail_append": False}
 
-    async def fake_get_or_create(session, session_key, user_id):
-        recorded["conv"] = (session_key, user_id)
+    async def fake_resolve(session, conversation_id, user_id):
+        recorded["conv"] = (conversation_id, user_id)
 
         class _C:
             id = 42
@@ -64,7 +64,7 @@ def tool_client(monkeypatch, fake_model):
             }
         )
 
-    monkeypatch.setattr(routes, "get_or_create_conversation", fake_get_or_create)
+    monkeypatch.setattr(routes, "resolve_conversation", fake_resolve)
     monkeypatch.setattr(routes, "append_turn", fake_append_turn)
 
     def fake_registry(session, conversation_id):
@@ -97,7 +97,7 @@ def test_流式响应里能拿到工具的running与ok两种帧(tool_client, fak
     client, _ = tool_client
     _plan_logistics(fake_model)
 
-    r = client.post("/api/chat/stream", json={"message": "查物流", "session_id": "s1"})
+    r = client.post("/api/chat/stream", json={"message": "查物流", "conversation_id": 42})
 
     assert r.status_code == 200
     tool_frames = [d for name, d in _parse_sse(r.text) if name == "tool"]
@@ -107,45 +107,45 @@ def test_流式响应里能拿到工具的running与ok两种帧(tool_client, fak
     assert tool_frames[-1]["name"] == "fake_logistics"
 
 
-def test_done帧包含四个约定字段且回传请求里的session_id(tool_client):
+def test_done帧包含四个约定字段且回传会话主键(tool_client):
     client, _ = tool_client
 
-    r = client.post("/api/chat/stream", json={"message": "我要退货", "session_id": "s1"})
+    r = client.post("/api/chat/stream", json={"message": "我要退货", "conversation_id": 42})
     done = _parse_sse(r.text)[-1]
 
     assert done[0] == "done"
-    assert set(done[1]) == {"content", "session_id", "trimmed", "tools"}
-    assert done[1]["session_id"] == "s1"
+    assert set(done[1]) == {"content", "conversation_id", "trimmed", "tools"}
+    assert done[1]["conversation_id"] == 42
 
 
-def test_客户端传session_id时沿用该值(tool_client):
+def test_客户端传conversation_id时沿用它(tool_client):
     client, recorded = tool_client
 
     r = client.post(
-        "/api/chat/stream", json={"message": "我要退货", "session_id": "s-abc"}
+        "/api/chat/stream", json={"message": "我要退货", "conversation_id": 42}
     )
     done = _parse_sse(r.text)[-1][1]
 
-    assert done["session_id"] == "s-abc"
-    assert recorded["conv"][0] == "s-abc"
+    assert done["conversation_id"] == 42
+    assert recorded["conv"][0] == 42
 
 
-def test_不传session_id时自动生成且与落库用的一致(tool_client):
+def test_不传conversation_id时由后端建会话(tool_client):
+    """首轮没有 id：路由应把 None 交给 resolve，再把新建的 id 回传。"""
     client, recorded = tool_client
 
     r = client.post("/api/chat/stream", json={"message": "我要退货"})
     done = _parse_sse(r.text)[-1][1]
 
-    assert isinstance(done["session_id"], str)
-    assert done["session_id"]
-    assert recorded["conv"][0] == done["session_id"]
+    assert done["conversation_id"] == 42
+    assert recorded["conv"][0] is None
 
 
 def test_完成后把本轮对话落库(tool_client, fake_model):
     client, recorded = tool_client
     _plan_logistics(fake_model)
 
-    r = client.post("/api/chat/stream", json={"message": "查物流", "session_id": "s1"})
+    r = client.post("/api/chat/stream", json={"message": "查物流", "conversation_id": 42})
     done = _parse_sse(r.text)[-1][1]
 
     assert len(recorded["appended"]) == 1
@@ -161,10 +161,10 @@ def test_落库失败不影响已推给客户端的内容(tool_client):
     client, recorded = tool_client
     recorded["fail_append"] = True
 
-    r = client.post("/api/chat/stream", json={"message": "我要退货", "session_id": "s1"})
+    r = client.post("/api/chat/stream", json={"message": "我要退货", "conversation_id": 42})
     events = _parse_sse(r.text)
 
     assert r.status_code == 200
     assert "error" not in [name for name, _ in events]
     assert events[-1][0] == "done"
-    assert events[-1][1]["session_id"] == "s1"
+    assert events[-1][1]["conversation_id"] == 42

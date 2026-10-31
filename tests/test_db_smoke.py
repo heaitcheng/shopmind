@@ -1,11 +1,11 @@
-"""数据库冒烟测试：连真 MySQL，验证建表、中文存取、LIKE 召回与唯一约束。
+"""数据库冒烟测试：连真 MySQL，验证建表、中文存取、LIKE 召回与 ENUM 约束。
 
 不依赖 seed 状态，用例内自己插数据；db_session 结束后自动清表。
 """
 
 import pytest
 from sqlalchemy import select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DataError
 
 from app.db.models import Conversation, Faq
 
@@ -104,24 +104,12 @@ async def test_like_youfei_returns_nothing(db_session):
     assert hit == 2
 
 
-async def test_conversation_session_key_is_unique(db_session):
-    """session_key 建了唯一索引，插两条相同值必须报 IntegrityError。"""
-    db_session.add(Conversation(session_key="dup-session-key", user_id="anon-1"))
-    await db_session.commit()
-
-    db_session.add(Conversation(session_key="dup-session-key", user_id="anon-2"))
-    with pytest.raises(IntegrityError):
+async def test_conversation_status_is_enum(db_session):
+    """conversations.status 是 ENUM，越界值由数据库拒绝。"""
+    db_session.add(Conversation(user_id="anon-1", status="open"))
+    with pytest.raises(DataError):
         await db_session.commit()
-
-    # 冲突后回滚，确认只有第一条落库
     await db_session.rollback()
-    rows = (
-        await db_session.execute(
-            select(Conversation).where(Conversation.session_key == "dup-session-key")
-        )
-    ).scalars().all()
-    assert len(rows) == 1
-    assert rows[0].user_id == "anon-1"
 
 
 async def test_engine_points_at_test_database(engine):

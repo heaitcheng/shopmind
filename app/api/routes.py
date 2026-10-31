@@ -1,6 +1,5 @@
 import json
 import logging
-import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.core.config import Settings, get_settings
 from app.core.llm import get_llm
-from app.db.repo import append_turn, get_or_create_conversation
+from app.db.repo import append_turn, resolve_conversation
 from app.db.session import get_session
 from app.memory import SessionStore
 from app.schemas import AfterSaleRequest
@@ -67,7 +66,8 @@ def get_registry_factory():
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
-    session_id: str | None = None
+    # 会话标识就是 conversations.id，首轮不带，后端建好后在 done 帧返回
+    conversation_id: int | None = None
     user_id: str | None = None  # 无鉴权，前端生成的匿名 id
 
 
@@ -76,7 +76,7 @@ class ExtractRequest(BaseModel):
 
 
 class ResetRequest(BaseModel):
-    session_id: str = Field(min_length=1)
+    conversation_id: int
 
 
 # ---- SSE 帧 ----
@@ -101,11 +101,12 @@ async def chat_stream(
     session=Depends(get_session),
     make_registry=Depends(get_registry_factory),
 ):
-    session_key = req.session_id or uuid.uuid4().hex
     user_id = req.user_id or "anonymous"
 
     # 先建/取会话，拿到 conversation_id 才能造 create_ticket 工具
-    conv = await get_or_create_conversation(session, session_key, user_id)
+    conv = await resolve_conversation(session, req.conversation_id, user_id)
+    # 进程内历史（SessionStore）按字符串 key 存，直接用会话主键
+    store_key = str(conv.id)
     registry = make_registry(session, conv.id)
 
     # 复用 get_service 已解析好的 model/store/settings，只补 registry 与固定 id
@@ -114,13 +115,16 @@ async def chat_stream(
         store=service.store,
         settings=service.settings,
         registry=registry,
-        session_id_factory=lambda: session_key,
+        session_id_factory=lambda: store_key,
     )
 
     async def event_stream():
         try:
-            async for item in svc.stream_with_tools(session_key, req.message):
+            async for item in svc.stream_with_tools(store_key, req.message):
                 if item["event"] == "done":
+                    # 对外只暴露会话主键：首轮拿不到，之后就靠它认会话
+                    item["data"].pop("session_id", None)
+                    item["data"]["conversation_id"] = conv.id
                     # 落库失败不能影响已经推给用户的内容，也不能吞得无声无息
                     try:
                         await append_turn(
@@ -154,8 +158,8 @@ async def chat_extract(req: ExtractRequest, service: ChatService = Depends(get_s
 
 @router.post("/api/chat/reset")
 async def chat_reset(req: ResetRequest) -> dict:
-    store.clear(req.session_id)
-    return {"cleared": req.session_id}
+    store.clear(str(req.conversation_id))
+    return {"cleared": req.conversation_id}
 
 
 @router.get("/")
